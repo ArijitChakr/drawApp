@@ -1,28 +1,87 @@
 import express, { Request, Response } from "express";
-import { Jwt } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
+import { authMiddleware } from "./middlewares/authMiddleware";
+import { JWT_SECRET } from "@repo/backend-common/config";
+import bcrypt from "bcrypt";
+import {
+  CreateRoomSchema,
+  CreateUserSchema,
+  SigninSchema,
+} from "@repo/common/types";
+import { createUser, getUser, createRoom } from "@repo/db/client";
+
+declare global {
+  namespace Express {
+    interface Request {
+      userId?: string;
+    }
+  }
+}
 
 const app = express();
 
 app.use(express.json());
 
-app.post("/signup", (req: Request, res: Response) => {
+app.post("/signup", async (req: Request, res: Response) => {
+  const data = CreateUserSchema.safeParse(req.body);
+  if (!data.success) {
+    res.json({
+      message: "invalid input",
+    });
+    return;
+  }
   const username = req.body.username;
   const password = req.body.password;
+  const name = req.body.name;
 
+  const hashedPass = await bcrypt.hash(password, 10);
+
+  const userId = await createUser(username, hashedPass, name);
   res.json({
-    message: "You are signed up",
+    userId,
   });
 });
 
-app.post("/signin", (req: Request, res: Response) => {
+app.post("/signin", async (req: Request, res: Response) => {
+  const data = SigninSchema.safeParse(req.body);
+  if (!data.success) {
+    res.json({
+      message: "invalid input",
+    });
+    return;
+  }
+
   const username = req.body.username;
   const password = req.body.password;
 
-  res.json({
-    message: "You are signed in",
-  });
+  const response = await getUser(username);
+  if (!response) return;
+  const isPasswordCorrect = await bcrypt.compare(password, response?.password);
+
+  if (isPasswordCorrect) {
+    const token = jwt.sign({ userId: response.id }, JWT_SECRET);
+    res.json({
+      token,
+    });
+  } else {
+    res.status(403).json({
+      message: "incorrect password",
+    });
+  }
 });
 
-app.post("/create-room", (req: Request, res: Response) => {});
+app.post("/create-room", authMiddleware, (req: Request, res: Response) => {
+  const data = CreateRoomSchema.safeParse(req.body);
+  if (!data.success) {
+    res.json({
+      message: "invalid input",
+    });
+    return;
+  }
+
+  res.json({
+    roomId: 123,
+  });
+});
 
 app.listen(3001);
