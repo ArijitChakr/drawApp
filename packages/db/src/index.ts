@@ -3,21 +3,22 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 export async function createUser(
-  username: string,
+  email: string,
   password: string,
-  name: string
+  name: string,
+  photo: string
 ) {
   const response = await prisma.user.create({
-    data: { username, password, name },
+    data: { email, password, name, photo },
   });
 
   return response.id;
 }
 
-export async function getUser(username: string) {
+export async function getUser(email: string) {
   const response = await prisma.user.findFirst({
     where: {
-      username,
+      email,
     },
   });
 
@@ -27,11 +28,20 @@ export async function getUser(username: string) {
   return response;
 }
 
-export async function createRoom(roomname: string) {
+export async function createRoom(slug: string, adminId: string) {
   const response = await prisma.room.create({
     data: {
-      roomname,
+      slug,
+      adminId,
     },
+  });
+
+  return response;
+}
+
+export async function getChats(roomId: number) {
+  const response = await prisma.chat.findMany({
+    where: { roomId },
   });
 
   return response;

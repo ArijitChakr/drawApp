@@ -8,7 +8,7 @@ import {
   CreateUserSchema,
   SigninSchema,
 } from "@repo/common/types";
-import { createUser, getUser, createRoom } from "@repo/db/client";
+import { createUser, getUser, createRoom, getChats } from "@repo/db/client";
 
 declare global {
   namespace Express {
@@ -33,10 +33,11 @@ app.post("/signup", async (req: Request, res: Response) => {
   const username = req.body.username;
   const password = req.body.password;
   const name = req.body.name;
+  const photo = req.body.photo;
 
   const hashedPass = await bcrypt.hash(password, 10);
 
-  const userId = await createUser(username, hashedPass, name);
+  const userId = await createUser(username, hashedPass, name, photo);
   res.json({
     userId,
   });
@@ -70,17 +71,32 @@ app.post("/signin", async (req: Request, res: Response) => {
   }
 });
 
-app.post("/create-room", authMiddleware, (req: Request, res: Response) => {
-  const data = CreateRoomSchema.safeParse(req.body);
-  if (!data.success) {
+app.post(
+  "/create-room",
+  authMiddleware,
+  async (req: Request, res: Response) => {
+    const data = CreateRoomSchema.safeParse(req.body);
+    if (!data.success) {
+      res.json({
+        message: "invalid input",
+      });
+      return;
+    }
+    const response = await createRoom(req.body.name, req.userId as string);
+
     res.json({
-      message: "invalid input",
+      roomId: response.id,
     });
-    return;
   }
+);
+
+app.get("/chats", authMiddleware, async (req: Request, res: Response) => {
+  const roomId = req.params.room;
+
+  const chats = await getChats(Number(roomId));
 
   res.json({
-    roomId: 123,
+    chats,
   });
 });
 
