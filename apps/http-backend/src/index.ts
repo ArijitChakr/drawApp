@@ -2,7 +2,6 @@ import express, { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { authMiddleware } from "./middlewares/authMiddleware";
 import { JWT_SECRET } from "@repo/backend-common/config";
-import bcrypt from "bcrypt";
 import {
   CreateRoomSchema,
   CreateUserSchema,
@@ -23,24 +22,27 @@ const app = express();
 app.use(express.json());
 
 app.post("/signup", async (req: Request, res: Response) => {
-  const data = CreateUserSchema.safeParse(req.body);
-  if (!data.success) {
+  const parsedData = CreateUserSchema.safeParse(req.body);
+  if (!parsedData.success) {
     res.json({
       message: "invalid input",
     });
     return;
   }
-  const username = req.body.username;
-  const password = req.body.password;
-  const name = req.body.name;
-  const photo = req.body.photo;
+  const username = parsedData.data.username;
+  const password = parsedData.data.password;
+  const name = parsedData.data.name;
 
-  const hashedPass = await bcrypt.hash(password, 10);
-
-  const userId = await createUser(username, hashedPass, name, photo);
-  res.json({
-    userId,
-  });
+  try {
+    await createUser(username, password, name);
+    res.json({
+      message: "You are signed up",
+    });
+  } catch (e) {
+    res.status(411).json({
+      message: "User already exists",
+    });
+  }
 });
 
 app.post("/signin", async (req: Request, res: Response) => {
@@ -52,21 +54,26 @@ app.post("/signin", async (req: Request, res: Response) => {
     return;
   }
 
-  const username = req.body.username;
-  const password = req.body.password;
+  try {
+    const username = data.data.username;
+    const password = data.data.password;
 
-  const response = await getUser(username);
-  if (!response) return;
-  const isPasswordCorrect = await bcrypt.compare(password, response?.password);
+    const response = await getUser(username);
+    if (!response) return;
 
-  if (isPasswordCorrect) {
-    const token = jwt.sign({ userId: response.id }, JWT_SECRET);
-    res.json({
-      token,
-    });
-  } else {
-    res.status(403).json({
-      message: "incorrect password",
+    if (response.password === password) {
+      const token = jwt.sign({ userId: response.id }, JWT_SECRET);
+      res.json({
+        token,
+      });
+    } else {
+      res.status(403).json({
+        message: "incorrect password",
+      });
+    }
+  } catch (e) {
+    res.status(411).json({
+      message: "Incorrect username or password",
     });
   }
 });
@@ -82,22 +89,34 @@ app.post(
       });
       return;
     }
-    const response = await createRoom(req.body.name, req.userId as string);
+    try {
+      const response = await createRoom(data.data.name, req.userId as string);
 
-    res.json({
-      roomId: response.id,
-    });
+      res.json({
+        roomId: response.id,
+      });
+    } catch (e) {
+      res.status(411).json({
+        message: "An error occured, please try again later",
+      });
+    }
   }
 );
 
 app.get("/chats", authMiddleware, async (req: Request, res: Response) => {
   const roomId = req.params.room;
 
-  const chats = await getChats(Number(roomId));
+  try {
+    const chats = await getChats(Number(roomId));
 
-  res.json({
-    chats,
-  });
+    res.json({
+      chats,
+    });
+  } catch (e) {
+    res.status(404).json({
+      message: "An error occured",
+    });
+  }
 });
 
 app.listen(3001);

@@ -1,48 +1,66 @@
 import { PrismaClient } from "@prisma/client";
-
 const prisma = new PrismaClient();
 
 export async function createUser(
   email: string,
   password: string,
-  name: string,
-  photo: string
+  name: string
 ) {
-  const response = await prisma.user.create({
-    data: { email, password, name, photo },
-  });
+  try {
+    const response = await prisma.user.create({
+      data: { email, password, name },
+    });
 
-  return response.id;
+    return response.id;
+  } catch (e) {
+    console.error(e);
+    throw new Error("An error occured");
+  }
 }
 
 export async function getUser(email: string) {
-  const response = await prisma.user.findFirst({
-    where: {
-      email,
-    },
-  });
+  try {
+    const response = await prisma.user.findFirst({
+      where: {
+        email,
+      },
+    });
 
-  if (!response) {
-    return;
+    if (!response) {
+      return;
+    }
+    return response;
+  } catch (e) {
+    console.error(e);
+    throw new Error("An error occured");
   }
-  return response;
 }
 
 export async function createRoom(slug: string, adminId: string) {
-  const response = await prisma.room.create({
-    data: {
-      slug,
-      adminId,
-    },
-  });
+  try {
+    const response = await prisma.room.create({
+      data: {
+        slug,
+        adminId,
+      },
+    });
 
-  return response;
+    return response;
+  } catch (e) {
+    console.error(e);
+    throw new Error("An error occured");
+  }
 }
 
 export async function getChats(roomId: number) {
-  const response = await prisma.chat.findMany({
-    where: { roomId },
-  });
+  try {
+    const response = await prisma.chat.findMany({
+      where: { roomId },
+    });
 
-  return response;
+    return response;
+  } catch (e) {
+    console.error(e);
+    throw new Error("An error occured");
+  }
 }
